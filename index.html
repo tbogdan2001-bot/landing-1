@@ -73,7 +73,7 @@
     .hero::before {
       content: '';
       position: absolute; inset: 0;
-      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9a84c' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c9a84c' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C%2Fg%3E%3C%2Fsvg%3E");
       opacity: 0.5;
     }
     .hero-inner {
@@ -305,8 +305,8 @@
       <h3>Чтобы оставить заявку,&nbsp;заполните форму:</h3>
       <p class="warn">❗ Будьте внимательны при вводе данных</p>
       <form onsubmit="handleSubmit(event)">
-        <input type="text" placeholder="Ваше имя" required />
-        <input type="tel" placeholder="Ваш телефон" required />
+        <input type="text" name="name" placeholder="Ваше имя" required />
+        <input type="tel" name="phone" placeholder="Ваш телефон" required />
         <div class="checkbox-row">
           <input type="checkbox" id="c1" required />
           <label for="c1">Я согласен на обработку моих персональных данных в соответствии с <a href="#">Политикой конфиденциальности</a></label>
@@ -437,24 +437,74 @@
   function toggleMenu() {
     document.getElementById('mobileMenu').classList.toggle('open');
   }
-  const end = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
-  function updateTimer() {
-    const diff = end - Date.now();
-    if (diff <= 0) return;
-    const d = Math.floor(diff / 86400000);
-    const h = Math.floor((diff % 86400000) / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
-    document.getElementById('cd-days').textContent  = String(d).padStart(2,'0');
-    document.getElementById('cd-hours').textContent = String(h).padStart(2,'0');
-    document.getElementById('cd-min').textContent   = String(m).padStart(2,'0');
-    document.getElementById('cd-sec').textContent   = String(s).padStart(2,'0');
-  }
-  updateTimer();
-  setInterval(updateTimer, 1000);
+
+  /* ---- Countdown timer: persists across page reloads via cookie ---- */
+  (function() {
+    var COOKIE_KEY = 'vr_timer_end';
+    var DURATION_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
+
+    function getCookie(name) {
+      var match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+      return match ? decodeURIComponent(match[1]) : null;
+    }
+
+    function setCookie(name, value, ms) {
+      var expires = new Date(Date.now() + ms).toUTCString();
+      document.cookie = name + '=' + encodeURIComponent(value) + '; expires=' + expires + '; path=/; SameSite=Lax';
+    }
+
+    var stored = getCookie(COOKIE_KEY);
+    var endTime;
+
+    if (stored && !isNaN(Number(stored))) {
+      endTime = Number(stored);
+      // If cookie expired, restart timer
+      if (endTime <= Date.now()) {
+        endTime = Date.now() + DURATION_MS;
+        setCookie(COOKIE_KEY, String(endTime), DURATION_MS);
+      }
+    } else {
+      endTime = Date.now() + DURATION_MS;
+      setCookie(COOKIE_KEY, String(endTime), DURATION_MS);
+    }
+
+    function pad(n) { return String(n).padStart(2, '0'); }
+
+    function updateTimer() {
+      var diff = endTime - Date.now();
+      if (diff <= 0) {
+        document.getElementById('cd-days').textContent  = '00';
+        document.getElementById('cd-hours').textContent = '00';
+        document.getElementById('cd-min').textContent   = '00';
+        document.getElementById('cd-sec').textContent   = '00';
+        return;
+      }
+      var d = Math.floor(diff / 86400000);
+      var h = Math.floor((diff % 86400000) / 3600000);
+      var m = Math.floor((diff % 3600000) / 60000);
+      var s = Math.floor((diff % 60000) / 1000);
+      document.getElementById('cd-days').textContent  = pad(d);
+      document.getElementById('cd-hours').textContent = pad(h);
+      document.getElementById('cd-min').textContent   = pad(m);
+      document.getElementById('cd-sec').textContent   = pad(s);
+    }
+
+    updateTimer();
+    setInterval(updateTimer, 1000);
+  })();
+
+  /* ---- Form submit handler ---- */
   function handleSubmit(e) {
     e.preventDefault();
-    const btn = e.target.querySelector('button');
+    var form = e.target;
+    var btn = form.querySelector('button');
+    var name = form.querySelector('input[name="name"]').value.trim();
+    var phone = form.querySelector('input[name="phone"]').value.trim();
+
+    // You can replace this URL with your real webhook / Keitaro postback
+    // Example: fetch('https://YOUR_WEBHOOK_URL', { method:'POST', body: JSON.stringify({name, phone}) });
+    console.log('Lead:', { name: name, phone: phone });
+
     btn.textContent = '✓ Заявка отправлена';
     btn.style.background = 'linear-gradient(135deg, #4a7c4e, #2d5a30)';
     btn.style.color = '#fff';
